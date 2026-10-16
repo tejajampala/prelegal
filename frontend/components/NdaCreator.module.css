@@ -1,0 +1,197 @@
+.layout {
+  display: grid;
+  grid-template-columns: minmax(300px, 400px) 1fr;
+  gap: 2rem;
+  padding: 1.5rem;
+  align-items: start;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  position: sticky;
+  top: 1rem;
+  max-height: calc(100vh - 2rem);
+  overflow-y: auto;
+  padding-right: 0.5rem;
+}
+
+.form h1 {
+  margin: 0;
+  font-size: 1.5rem;
+}
+
+.form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.form input,
+.form textarea {
+  font: inherit;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid #888;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+}
+
+.hint {
+  margin: 0;
+  font-size: 0.9rem;
+  opacity: 0.7;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.link {
+  align-self: flex-start;
+  background: none;
+  border: none;
+  padding: 0;
+  color: #1a56db;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.85rem;
+  text-decoration: underline;
+}
+
+.fieldset {
+  border: 1px solid #8886;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.inline {
+  flex-direction: row !important;
+  align-items: center;
+  gap: 0.5rem !important;
+  font-weight: 400 !important;
+}
+
+.num {
+  width: 4.5rem;
+}
+
+.previewPane {
+  min-width: 0;
+}
+
+.ready,
+.missingSummary {
+  margin: 0 0 0.5rem;
+  font-size: 0.9rem;
+}
+
+.missingSummary {
+  color: #8a4b00;
+  font-weight: 600;
+}
+
+.missing {
+  font-size: 0.85rem;
+  color: #8a4b00;
+  background: #fff7e6;
+  border: 1px solid #f0c36d;
+  border-radius: 6px;
+  padding: 0.5rem 0.75rem 0.5rem 1.8rem;
+  margin: 0 0 0.75rem;
+  columns: 2;
+}
+
+.actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
+.actions button {
+  font: inherit;
+  padding: 0.5rem 0.9rem;
+  border-radius: 6px;
+  border: 1px solid #888;
+  cursor: pointer;
+  background: #1a56db;
+  color: #fff;
+}
+
+.actions button:hover:not([aria-disabled="true"]) {
+  background: #1647b5;
+}
+
+.actions button[aria-disabled="true"] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.preview {
+  background: #fff;
+  color: #111;
+  padding: 2rem;
+  border-radius: 8px;
+  box-shadow: 0 1px 6px #0003;
+  font-family: Georgia, serif;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.preview table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.preview th,
+.preview td {
+  border: 1px solid #999;
+  padding: 0.5rem;
+}
+
+.preview :global(.filled) {
+  background: #fff3b0;
+}
+
+.preview hr {
+  margin: 2rem 0;
+}
+
+@media (max-width: 900px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+
+  .form {
+    position: static;
+    max-height: none;
+  }
+}
+
+@media print {
+  .form,
+  .actions,
+  .ready,
+  .missingSummary,
+  .missing {
+    display: none;
+  }
+
+  .layout {
+    display: block;
+    padding: 0;
+  }
+
+  .preview {
+    box-shadow: none;
+    padding: 0;
+  }
+}
