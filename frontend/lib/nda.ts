@@ -20,6 +20,9 @@ export type NdaForm = {
   party2: Party;
 };
 
+// "html" feeds the on-screen preview and the .html download; "md" produces a plain markdown file.
+export type Mode = "html" | "md";
+
 const emptyParty: Party = { name: "", title: "", company: "", notice: "", date: "" };
 
 export function defaultForm(): NdaForm {
@@ -38,15 +41,57 @@ export function defaultForm(): NdaForm {
   };
 }
 
+// Local date as YYYY-MM-DD (toISOString would give the UTC date).
+export function todayLocal(): string {
+  const d = new Date();
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
+const filled = (s: string) => s.trim() !== "";
+const positiveInt = (s: string) => /^[1-9]\d*$/.test(s.trim());
+
+const CHECKS: [label: string, ok: (f: NdaForm) => boolean][] = [
+  ["Purpose", (f) => filled(f.purpose)],
+  ["Effective date", (f) => filled(f.effectiveDate)],
+  ["MNDA term (whole years)", (f) => f.termType !== "expires" || positiveInt(f.termYears)],
+  [
+    "Term of confidentiality (whole years)",
+    (f) => f.confidentialityType !== "years" || positiveInt(f.confidentialityYears),
+  ],
+  ["Governing law", (f) => filled(f.governingLaw)],
+  ["Jurisdiction", (f) => filled(f.jurisdiction)],
+  ["Party 1 name", (f) => filled(f.party1.name)],
+  ["Party 1 company", (f) => filled(f.party1.company)],
+  ["Party 1 date", (f) => filled(f.party1.date)],
+  ["Party 2 name", (f) => filled(f.party2.name)],
+  ["Party 2 company", (f) => filled(f.party2.company)],
+  ["Party 2 date", (f) => filled(f.party2.date)],
+];
+
+// Labels of required fields that are empty or invalid, in form order.
+export function missingFields(f: NdaForm): string[] {
+  return CHECKS.filter(([, ok]) => !ok(f)).map(([label]) => label);
+}
+
 const escapeHtml = (s: string) =>
   s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
+// Also escapes line-leading list/rule/heading markers so multi-line text can't become a list or rule.
+const escapeMd = (s: string) =>
+  s
+    .replace(/[\\`*_[\]<>|#~]/g, "\\$&")
+    .replace(/^(\s*)([-+=])/gm, "$1\\$2")
+    .replace(/^(\s*\d+)([.)])/gm, "$1\\$2");
+
+// User text is neutralised for both HTML and markdown so it renders literally in either output.
+const escapeFor = (s: string, m: Mode) => (m === "html" ? escapeMd(escapeHtml(s)) : escapeMd(s));
+
 const blank = "\\_\\_\\_\\_\\_\\_\\_\\_";
 
-// Escaped for safe embedding in markdown/HTML; falls back to a blank line when empty.
-const val = (s: string) => (s.trim() ? escapeHtml(s.trim()) : blank);
+const val = (s: string, m: Mode) => (s.trim() ? escapeFor(s.trim(), m) : blank);
 
-const years = (n: string) => `${val(n)} year(s)`;
+const years = (n: string, m: Mode) => `${val(n, m)} year(s)`;
 
 function formatDate(iso: string) {
   if (!iso) return blank;
@@ -56,18 +101,19 @@ function formatDate(iso: string) {
     : d.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
 }
 
-const cell = (s: string) =>
-  s.trim() ? escapeHtml(s.trim()).replace(/\|/g, "&#124;").replace(/\n/g, " ") : "&nbsp;";
+const emptyCell = (m: Mode) => (m === "html" ? "&nbsp;" : "");
 
-export function buildCoverPage(f: NdaForm): string {
-  const term =
-    f.termType === "expires"
-      ? `Expires ${years(f.termYears)} from Effective Date.`
-      : "Continues until terminated in accordance with the terms of the MNDA.";
-  const conf =
-    f.confidentialityType === "years"
-      ? `${years(f.confidentialityYears)} from Effective Date, but in the case of trade secrets until Confidential Information is no longer considered a trade secret under applicable laws.`
-      : "In perpetuity.";
+const cell = (s: string, m: Mode) =>
+  s.trim() ? escapeFor(s.trim(), m).replace(/\s*\n\s*/g, " ") : emptyCell(m);
+
+// Unlike formatDate, an empty date leaves the table cell empty rather than showing a blank line.
+const dateCell = (iso: string, m: Mode) => (iso ? cell(formatDate(iso), m) : emptyCell(m));
+
+const box = (checked: boolean) => (checked ? "[x]" : "[ ]");
+
+export function buildCoverPage(f: NdaForm, m: Mode = "html"): string {
+  const expires = f.termType === "expires";
+  const yearsConf = f.confidentialityType === "years";
 
   return `# Mutual Non-Disclosure Agreement
 
@@ -78,7 +124,7 @@ This Mutual Non-Disclosure Agreement (the “MNDA”) consists of: (1) this Cove
 ### Purpose
 *How Confidential Information may be used*
 
-${val(f.purpose)}
+${val(f.purpose, m)}
 
 ### Effective Date
 ${formatDate(f.effectiveDate)}
@@ -86,54 +132,55 @@ ${formatDate(f.effectiveDate)}
 ### MNDA Term
 *The length of this MNDA*
 
-${term}
+- ${box(expires)} Expires ${years(f.termYears, m)} from Effective Date.
+- ${box(!expires)} Continues until terminated in accordance with the terms of the MNDA.
 
 ### Term of Confidentiality
 *How long Confidential Information is protected*
 
-${conf}
+- ${box(yearsConf)} ${years(f.confidentialityYears, m)} from Effective Date, but in the case of trade secrets until Confidential Information is no longer considered a trade secret under applicable laws.
+- ${box(!yearsConf)} In perpetuity.
 
 ### Governing Law & Jurisdiction
-Governing Law: ${val(f.governingLaw)}
+Governing Law: ${val(f.governingLaw, m)}
 
-Jurisdiction: ${val(f.jurisdiction)}
+Jurisdiction: ${val(f.jurisdiction, m)}
 
 ### MNDA Modifications
-${f.modifications.trim() ? escapeHtml(f.modifications.trim()) : "None."}
+${f.modifications.trim() ? escapeFor(f.modifications.trim(), m) : "None."}
 
 By signing this Cover Page, each party agrees to enter into this MNDA as of the Effective Date.
 
 |  | PARTY 1 | PARTY 2 |
 |:--- | :----: | :----: |
-| Signature | &nbsp; | &nbsp; |
-| Print Name | ${cell(f.party1.name)} | ${cell(f.party2.name)} |
-| Title | ${cell(f.party1.title)} | ${cell(f.party2.title)} |
-| Company | ${cell(f.party1.company)} | ${cell(f.party2.company)} |
-| Notice Address | ${cell(f.party1.notice)} | ${cell(f.party2.notice)} |
-| Date | ${cell(f.party1.date)} | ${cell(f.party2.date)} |
+| Signature | ${emptyCell(m)} | ${emptyCell(m)} |
+| Print Name | ${cell(f.party1.name, m)} | ${cell(f.party2.name, m)} |
+| Title | ${cell(f.party1.title, m)} | ${cell(f.party2.title, m)} |
+| Company | ${cell(f.party1.company, m)} | ${cell(f.party2.company, m)} |
+| Notice Address *(use either email or postal address)* | ${cell(f.party1.notice, m)} | ${cell(f.party2.notice, m)} |
+| Date | ${dateCell(f.party1.date, m)} | ${dateCell(f.party2.date, m)} |
 
 Common Paper Mutual Non-Disclosure Agreement (Version 1.0) free to use under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
 `;
 }
 
 // Fills the defined terms used in the Standard Terms with the values from the form.
-export function buildStandardTerms(raw: string, f: NdaForm): string {
+export function buildStandardTerms(raw: string, f: NdaForm, m: Mode = "html"): string {
   const fill: Record<string, string> = {
-    Purpose: val(f.purpose),
+    Purpose: val(f.purpose, m),
     "Effective Date": formatDate(f.effectiveDate),
-    "MNDA Term":
-      f.termType === "expires"
-        ? `${years(f.termYears)} from the Effective Date`
-        : "period until terminated",
+    "MNDA Term": f.termType === "expires" ? `${years(f.termYears, m)} from the Effective Date` : "period until terminated",
     "Term of Confidentiality":
-      f.confidentialityType === "years"
-        ? `${years(f.confidentialityYears)} from the Effective Date`
-        : "perpetuity",
-    "Governing Law": val(f.governingLaw),
-    Jurisdiction: val(f.jurisdiction),
+      f.confidentialityType === "years" ? `${years(f.confidentialityYears, m)} from the Effective Date` : "perpetuity",
+    "Governing Law": val(f.governingLaw, m),
+    Jurisdiction: val(f.jurisdiction, m),
   };
-  return raw.replace(
-    /<span class="coverpage_link">([^<]+)<\/span>/g,
-    (m, key: string) => (key in fill ? `<span class="filled">${fill[key]}</span>` : m),
-  );
+  return raw.replace(/<span class="coverpage_link">([^<]+)<\/span>/g, (match, key: string) => {
+    if (!(key in fill)) return match;
+    return m === "html" ? `<span class="filled">${fill[key]}</span>` : fill[key];
+  });
+}
+
+export function buildDocument(standardTerms: string, f: NdaForm, m: Mode = "html"): string {
+  return `${buildCoverPage(f, m)}\n\n---\n\n${buildStandardTerms(standardTerms, f, m)}`;
 }

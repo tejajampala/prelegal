@@ -2,32 +2,50 @@
 
 import { useMemo, useState } from "react";
 import { marked } from "marked";
-import { buildCoverPage, buildStandardTerms, defaultForm, type NdaForm, type Party } from "@/lib/nda";
+import { buildDocument, defaultForm, missingFields, todayLocal, type NdaForm, type Party } from "@/lib/nda";
 import styles from "./NdaCreator.module.css";
 
 type PartyKey = "party1" | "party2";
 
+const PARTY_FIELDS: [key: keyof Party, label: string, type?: string][] = [
+  ["name", "Print name"],
+  ["title", "Title"],
+  ["company", "Company"],
+  ["notice", "Notice address (email or postal)"],
+  ["date", "Date", "date"],
+];
+
 export default function NdaCreator({ standardTerms }: { standardTerms: string }) {
   const [form, setForm] = useState<NdaForm>(defaultForm);
 
-  const markdown = useMemo(
-    () => `${buildCoverPage(form)}\n\n---\n\n${buildStandardTerms(standardTerms, form)}`,
+  // The preview and both downloads are derived from the current form on every render,
+  // so a download always matches what is displayed.
+  const html = useMemo(
+    () => marked.parse(buildDocument(standardTerms, form, "html"), { async: false }) as string,
     [form, standardTerms],
   );
-  const html = useMemo(() => marked.parse(markdown, { async: false }) as string, [markdown]);
+  const markdown = useMemo(() => buildDocument(standardTerms, form, "md"), [form, standardTerms]);
+  const missing = useMemo(() => missingFields(form), [form]);
+  const ready = missing.length === 0;
 
   const set = <K extends keyof NdaForm>(key: K, value: NdaForm[K]) =>
     setForm((f) => ({ ...f, [key]: value }));
   const setParty = (which: PartyKey, key: keyof Party, value: string) =>
     setForm((f) => ({ ...f, [which]: { ...f[which], [key]: value } }));
 
+  // Buttons use aria-disabled (so they stay focusable and can point at the missing list),
+  // which does not block clicks, so every action goes through this guard.
+  const whenReady = (action: () => void) => () => {
+    if (ready) action();
+  };
+
   function download(content: string, type: string, filename: string) {
-    const url = URL.createObjectURL(new Blob([content], { type }));
+    const url = URL.createObjectURL(new Blob([content], { type: `${type};charset=utf-8` }));
     const a = document.createElement("a");
     a.href = url;
     a.download = filename;
     a.click();
-    URL.revokeObjectURL(url);
+    setTimeout(() => URL.revokeObjectURL(url), 0);
   }
 
   const downloadHtml = () =>
@@ -40,29 +58,25 @@ export default function NdaCreator({ standardTerms }: { standardTerms: string })
       "Mutual-NDA.html",
     );
 
+  const actions: { text: string; run: () => void }[] = [
+    { text: "Download (.html)", run: downloadHtml },
+    { text: "Download (.md)", run: () => download(markdown, "text/markdown", "Mutual-NDA.md") },
+    { text: "Print / Save as PDF", run: () => window.print() },
+  ];
+
   const partyFields = (which: PartyKey, label: string) => (
     <fieldset className={styles.fieldset}>
       <legend>{label}</legend>
-      <label>
-        Print name
-        <input value={form[which].name} onChange={(e) => setParty(which, "name", e.target.value)} />
-      </label>
-      <label>
-        Title
-        <input value={form[which].title} onChange={(e) => setParty(which, "title", e.target.value)} />
-      </label>
-      <label>
-        Company
-        <input value={form[which].company} onChange={(e) => setParty(which, "company", e.target.value)} />
-      </label>
-      <label>
-        Notice address (email or postal)
-        <input value={form[which].notice} onChange={(e) => setParty(which, "notice", e.target.value)} />
-      </label>
-      <label>
-        Date
-        <input type="date" value={form[which].date} onChange={(e) => setParty(which, "date", e.target.value)} />
-      </label>
+      {PARTY_FIELDS.map(([key, text, type]) => (
+        <label key={key}>
+          {text}
+          <input
+            type={type}
+            value={form[which][key]}
+            onChange={(e) => setParty(which, key, e.target.value)}
+          />
+        </label>
+      ))}
     </fieldset>
   );
 
@@ -76,13 +90,15 @@ export default function NdaCreator({ standardTerms }: { standardTerms: string })
           Purpose
           <textarea rows={3} value={form.purpose} onChange={(e) => set("purpose", e.target.value)} />
         </label>
-        <label>
-          Effective date
-          <input type="date" value={form.effectiveDate} onChange={(e) => set("effectiveDate", e.target.value)} />
-          <button type="button" className={styles.link} onClick={() => set("effectiveDate", new Date().toISOString().slice(0, 10))}>
+        <div className={styles.field}>
+          <label>
+            Effective date
+            <input type="date" value={form.effectiveDate} onChange={(e) => set("effectiveDate", e.target.value)} />
+          </label>
+          <button type="button" className={styles.link} onClick={() => set("effectiveDate", todayLocal())}>
             Use today’s date
           </button>
-        </label>
+        </div>
 
         <fieldset className={styles.fieldset}>
           <legend>MNDA term</legend>
@@ -164,16 +180,30 @@ export default function NdaCreator({ standardTerms }: { standardTerms: string })
       </form>
 
       <section className={styles.previewPane}>
+        <p role="status" className={ready ? styles.ready : styles.missingSummary}>
+          {ready
+            ? "Ready to download."
+            : `${missing.length} required field${missing.length === 1 ? "" : "s"} still to complete before you can download.`}
+        </p>
+        {!ready && (
+          <ul id="missing-fields" className={styles.missing}>
+            {missing.map((label) => (
+              <li key={label}>{label}</li>
+            ))}
+          </ul>
+        )}
         <div className={styles.actions}>
-          <button type="button" onClick={downloadHtml}>
-            Download (.html)
-          </button>
-          <button type="button" onClick={() => download(markdown, "text/markdown", "Mutual-NDA.md")}>
-            Download (.md)
-          </button>
-          <button type="button" onClick={() => window.print()}>
-            Print / Save as PDF
-          </button>
+          {actions.map(({ text, run }) => (
+            <button
+              key={text}
+              type="button"
+              aria-disabled={!ready}
+              aria-describedby={ready ? undefined : "missing-fields"}
+              onClick={whenReady(run)}
+            >
+              {text}
+            </button>
+          ))}
         </div>
         <article className={styles.preview} dangerouslySetInnerHTML={{ __html: html }} />
       </section>
