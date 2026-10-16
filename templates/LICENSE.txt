@@ -1,0 +1,10 @@
+﻿License notice
+
+All files in this directory are Common Paper legal agreement templates,
+sourced from https://github.com/commonpaper and released under the
+Creative Commons Attribution 4.0 International license (CC BY 4.0):
+https://creativecommons.org/licenses/by/4.0/
+
+You are free to share and adapt these materials for any purpose, including
+commercially, provided you give appropriate credit to Common Paper, link to
+the license, and indicate if changes were made.
