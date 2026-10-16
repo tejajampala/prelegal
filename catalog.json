@@ -1,0 +1,62 @@
+﻿[
+    {
+        "name":  "Mutual Non-Disclosure Agreement",
+        "description":  "Standard Terms of the Common Paper Mutual NDA, for two parties to protect confidential information they share.",
+        "filename":  "Mutual-NDA.md"
+    },
+    {
+        "name":  "Mutual NDA Cover Page",
+        "description":  "Cover Page for the Common Paper Mutual NDA, capturing the deal-specific terms; incorporates the Standard Terms by reference.",
+        "filename":  "Mutual-NDA-coverpage.md"
+    },
+    {
+        "name":  "Cloud Service Agreement",
+        "description":  "Standard agreement for a vendor providing cloud/SaaS services to a customer, with Order Forms.",
+        "filename":  "CSA.md"
+    },
+    {
+        "name":  "Service Level Agreement",
+        "description":  "Service level terms (uptime, support response and remedies) to accompany a cloud service agreement.",
+        "filename":  "sla.md"
+    },
+    {
+        "name":  "Data Processing Agreement",
+        "description":  "Terms governing a processor handling personal data on behalf of a controller, for data protection compliance.",
+        "filename":  "DPA.md"
+    },
+    {
+        "name":  "Design Partner Agreement",
+        "description":  "Agreement for a customer who gives early feedback on a pre-release product in exchange for access.",
+        "filename":  "design-partner-agreement.md"
+    },
+    {
+        "name":  "Professional Services Agreement",
+        "description":  "Agreement for a provider delivering professional services to a customer, with statements of work.",
+        "filename":  "psa.md"
+    },
+    {
+        "name":  "Partnership Agreement",
+        "description":  "Agreement between two companies to partner, such as referral, resale or co-marketing.",
+        "filename":  "Partnership-Agreement.md"
+    },
+    {
+        "name":  "Business Associate Agreement",
+        "description":  "HIPAA business associate terms for handling protected health information.",
+        "filename":  "BAA.md"
+    },
+    {
+        "name":  "Software License Agreement",
+        "description":  "Standard agreement for licensing software to a customer, with Order Forms.",
+        "filename":  "Software-License-Agreement.md"
+    },
+    {
+        "name":  "Pilot Agreement",
+        "description":  "Short-term agreement letting a prospective customer trial a product before a full commercial deal.",
+        "filename":  "Pilot-Agreement.md"
+    },
+    {
+        "name":  "AI Addendum",
+        "description":  "Addendum adding terms on AI use, training data and outputs to an existing agreement.",
+        "filename":  "AI-Addendum.md"
+    }
+]
