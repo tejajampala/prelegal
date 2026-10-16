@@ -108,6 +108,7 @@ export default function NdaCreator({ standardTerms }: { standardTerms: string })
             <input
               type="number"
               min={1}
+              aria-label="MNDA term in years"
               className={styles.num}
               value={form.termYears}
               onChange={(e) => set("termYears", e.target.value)}
@@ -137,6 +138,7 @@ export default function NdaCreator({ standardTerms }: { standardTerms: string })
             <input
               type="number"
               min={1}
+              aria-label="Confidentiality term in years"
               className={styles.num}
               value={form.confidentialityYears}
               onChange={(e) => set("confidentialityYears", e.target.value)}
