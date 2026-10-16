@@ -1,7 +1,7 @@
 # Manual test plan: Mutual NDA creator
 
 Run the app with `npm install && npm run dev` from `frontend/` and open http://localhost:3000.
-The automated suites (`npm test`, `npm run test:e2e`) cover most of this; the items below are the
+The automated suites cover most of this (`npm test` for unit tests; `npm run test:e2e` for browser tests, which build and serve the app itself. Set `PW_CHANNEL=chrome` to use installed Chrome, `PW_DEV=1` to test `next dev`; first run `npx playwright install chromium`); the items below are the
 things that need human eyes, a real printer/PDF dialog, assistive technology, or other browsers.
 
 Record the browser, OS, and date next to each run. Mark each case Pass / Fail / N/A.
@@ -40,7 +40,7 @@ Record the browser, OS, and date next to each run. Mark each case Pass / Fail / 
 |----|-------|----------|
 | M-30 | Fill every required field. | Status changes to "Ready to download.", the list disappears, buttons look active. |
 | M-31 | Clear one required field (try Governing law, then a party's date). | Status and list reappear naming exactly that field; buttons look disabled again. |
-| M-32 | Set a year box to 0, -1, 1.5, empty. | "MNDA term (whole years)" / "Term of confidentiality (whole years)" is listed and downloads are blocked. |
+| M-32 | Set a year box to 0, -1, 1.5, 100 or empty (valid range is 1 to 99). | "MNDA term (whole years)" / "Term of confidentiality (whole years)" is listed and downloads are blocked. |
 | M-33 | With an invalid year, select the other radio option (Continues until terminated / In perpetuity). | The invalid year no longer blocks download. |
 | M-34 | Enter only spaces in a required field. | Treated as empty. |
 

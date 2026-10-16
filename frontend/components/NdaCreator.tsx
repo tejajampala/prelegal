@@ -44,8 +44,11 @@ export default function NdaCreator({ standardTerms }: { standardTerms: string })
     const a = document.createElement("a");
     a.href = url;
     a.download = filename;
+    // Attached to the page and revoked late: Firefox and Safari read the blob asynchronously.
+    document.body.appendChild(a);
     a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 0);
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 10_000);
   }
 
   const downloadHtml = () =>
@@ -103,11 +106,12 @@ export default function NdaCreator({ standardTerms }: { standardTerms: string })
         <fieldset className={styles.fieldset}>
           <legend>MNDA term</legend>
           <label className={styles.inline}>
-            <input type="radio" checked={form.termType === "expires"} onChange={() => set("termType", "expires")} />
+            <input type="radio" name="termType" checked={form.termType === "expires"} onChange={() => set("termType", "expires")} />
             Expires after
             <input
               type="number"
               min={1}
+              max={99}
               aria-label="MNDA term in years"
               className={styles.num}
               value={form.termYears}
@@ -119,6 +123,7 @@ export default function NdaCreator({ standardTerms }: { standardTerms: string })
           <label className={styles.inline}>
             <input
               type="radio"
+              name="termType"
               checked={form.termType === "untilTerminated"}
               onChange={() => set("termType", "untilTerminated")}
             />
@@ -131,6 +136,7 @@ export default function NdaCreator({ standardTerms }: { standardTerms: string })
           <label className={styles.inline}>
             <input
               type="radio"
+              name="confidentialityType"
               checked={form.confidentialityType === "years"}
               onChange={() => set("confidentialityType", "years")}
             />
@@ -138,6 +144,7 @@ export default function NdaCreator({ standardTerms }: { standardTerms: string })
             <input
               type="number"
               min={1}
+              max={99}
               aria-label="Confidentiality term in years"
               className={styles.num}
               value={form.confidentialityYears}
@@ -149,6 +156,7 @@ export default function NdaCreator({ standardTerms }: { standardTerms: string })
           <label className={styles.inline}>
             <input
               type="radio"
+              name="confidentialityType"
               checked={form.confidentialityType === "perpetuity"}
               onChange={() => set("confidentialityType", "perpetuity")}
             />

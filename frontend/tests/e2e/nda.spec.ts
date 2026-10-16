@@ -144,6 +144,29 @@ test.describe("term options (checkboxes)", () => {
     await expect(term).toBeEnabled();
   });
 
+  test("each option pair is one radio group, so arrow keys move between options", async ({ page }) => {
+    const expires = page.getByRole("radio", { name: /Expires after/ });
+    const untilTerminated = page.getByRole("radio", { name: /Continues until terminated/ });
+    // Chromium moves between nameless radios too, so also assert the group names that other browsers rely on.
+    await expect(expires).toHaveAttribute("name", "termType");
+    await expect(untilTerminated).toHaveAttribute("name", "termType");
+    await expect(page.getByRole("radio", { name: /For\s/ })).toHaveAttribute("name", "confidentialityType");
+    await expect(page.getByRole("radio", { name: /In perpetuity/ })).toHaveAttribute("name", "confidentialityType");
+    await expires.focus();
+    await page.keyboard.press("ArrowDown");
+    await expect(untilTerminated).toBeChecked();
+    await expect(expires).not.toBeChecked();
+    await page.keyboard.press("ArrowUp");
+    await expect(expires).toBeChecked();
+
+    const years = page.getByRole("radio", { name: /For\s/ });
+    const perpetuity = page.getByRole("radio", { name: /In perpetuity/ });
+    await years.focus();
+    await page.keyboard.press("ArrowDown");
+    await expect(perpetuity).toBeChecked();
+    await expect(years).not.toBeChecked();
+  });
+
   test("changing years updates the preview", async ({ page }) => {
     await page.getByRole("group", { name: "MNDA term" }).getByRole("spinbutton").fill("3");
     await page.getByRole("group", { name: "Term of confidentiality" }).getByRole("spinbutton").fill("5");
@@ -193,7 +216,7 @@ test.describe("validation gating", () => {
     await expect(page.locator("#missing-fields li")).toHaveText(["Governing law"]);
   });
 
-  for (const bad of ["", "0", "-2", "1.5"]) {
+  for (const bad of ["", "0", "-2", "1.5", "100", "1e3"]) {
     test(`an invalid MNDA term of ${JSON.stringify(bad)} years blocks download`, async ({ page }) => {
       await fillRequired(page);
       await page.getByRole("group", { name: "MNDA term" }).getByRole("spinbutton").fill(bad);

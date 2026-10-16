@@ -49,21 +49,47 @@ describe("defaultForm", () => {
 });
 
 describe("todayLocal", () => {
-  it("uses the local calendar date, zero-padded", () => {
+  // The process time zone is pinned per test, so these fail on any machine (including a UTC CI
+  // runner) if todayLocal() ever goes back to using the UTC date.
+  const originalTz = process.env.TZ;
+
+  afterEach(() => {
+    if (originalTz === undefined) delete process.env.TZ;
+    else process.env.TZ = originalTz;
+  });
+
+  function at(tz: string, utcInstant: string) {
+    process.env.TZ = tz;
     vi.useFakeTimers();
-    vi.setSystemTime(new Date(2026, 0, 5, 9, 0, 0));
+    vi.setSystemTime(new Date(utcInstant));
+  }
+
+  it("uses the local calendar date, zero-padded", () => {
+    at("America/New_York", "2026-01-05T14:00:00Z");
     expect(todayLocal()).toBe("2026-01-05");
   });
 
-  it("does not roll over to the UTC date late in the local day", () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date(2026, 11, 31, 23, 59, 0));
+  it("is ahead of UTC in a far-east zone (local 00:30 on 1 July, UTC still 30 June)", () => {
+    at("Pacific/Auckland", "2026-06-30T12:30:00Z");
+    expect(new Date().toISOString().slice(0, 10)).toBe("2026-06-30");
+    expect(todayLocal()).toBe("2026-07-01");
+  });
+
+  it("is behind UTC in a far-west zone (local 23:30 on 30 June, UTC already 1 July)", () => {
+    at("Pacific/Honolulu", "2026-07-01T09:30:00Z");
+    expect(new Date().toISOString().slice(0, 10)).toBe("2026-07-01");
+    expect(todayLocal()).toBe("2026-06-30");
+  });
+
+  it("handles year boundaries", () => {
+    at("Pacific/Auckland", "2026-12-31T11:30:00Z");
+    expect(todayLocal()).toBe("2027-01-01");
+    at("Pacific/Honolulu", "2027-01-01T09:30:00Z");
     expect(todayLocal()).toBe("2026-12-31");
   });
 
-  it("does not roll back to the UTC date early in the local day", () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date(2026, 2, 1, 0, 1, 0));
+  it("matches the UTC date in UTC", () => {
+    at("UTC", "2026-03-01T00:01:00Z");
     expect(todayLocal()).toBe("2026-03-01");
   });
 });
@@ -114,17 +140,40 @@ describe("missingFields", () => {
     expect(missingFields(f)).toEqual([label]);
   });
 
+  describe("dates", () => {
+    it.each(["not-a-date", "2026-13-01", "2026-02-30x", "275760-01-01", "26-10-17", "2026/10/17", "10/17/2026"])(
+      "rejects effective date %j",
+      (v) => {
+        expect(missingFields(completeForm({ effectiveDate: v }))).toEqual(["Effective date"]);
+      },
+    );
+
+    it("rejects invalid party dates", () => {
+      const f = completeForm();
+      f.party1.date = "275760-01-01";
+      f.party2.date = "nope";
+      expect(missingFields(f)).toEqual(["Party 1 date", "Party 2 date"]);
+    });
+
+    it.each(["2026-10-17", "1999-12-31", "2028-02-29"])("accepts %j", (v) => {
+      expect(missingFields(completeForm({ effectiveDate: v }))).toEqual([]);
+    });
+  });
+
   it("treats whitespace-only values as missing", () => {
     const f = completeForm({ governingLaw: "   ", jurisdiction: "\n\t" });
     expect(missingFields(f)).toEqual(["Governing law", "Jurisdiction"]);
   });
 
   describe("year fields", () => {
-    it.each(["", " ", "0", "-1", "1.5", "abc", "1e3", "01", "+2"])("rejects MNDA term years %j", (v) => {
-      expect(missingFields(completeForm({ termYears: v }))).toEqual(["MNDA term (whole years)"]);
-    });
+    it.each(["", " ", "0", "-1", "1.5", "abc", "1e3", "01", "+2", "100", "999", "99999999999"])(
+      "rejects MNDA term years %j",
+      (v) => {
+        expect(missingFields(completeForm({ termYears: v }))).toEqual(["MNDA term (whole years)"]);
+      },
+    );
 
-    it.each(["1", "2", "10", " 3 ", "100"])("accepts MNDA term years %j", (v) => {
+    it.each(["1", "2", "10", " 3 ", "99"])("accepts MNDA term years %j", (v) => {
       expect(missingFields(completeForm({ termYears: v }))).toEqual([]);
     });
 
@@ -294,6 +343,25 @@ describe("escaping of user text", () => {
   it("md mode backslash-escapes markdown metacharacters", () => {
     const md = buildCoverPage(completeForm({ governingLaw: "*a* _b_ `c` [d] #e ~f" }), "md");
     expect(md).toContain("Governing Law: \\*a\\* \\_b\\_ \\`c\\` \\[d\\] \\#e \\~f");
+  });
+
+  it("md mode escapes typed entities so they are not decoded by markdown renderers", () => {
+    const md = buildCoverPage(completeForm({ governingLaw: "&lt;b&gt; &#60; &amp;" }), "md");
+    // "&#60;" needs no extra "&" escape: the escaped "#" already stops it forming an entity.
+    expect(md).toContain("Governing Law: \\&lt;b\\&gt; &\\#60; \\&amp;");
+  });
+
+  it("md mode leaves ordinary ampersands alone", () => {
+    const md = buildCoverPage(completeForm({ governingLaw: "Smith & Wesson; R&D" }), "md");
+    expect(md).toContain("Governing Law: Smith & Wesson; R&D");
+  });
+
+  it("an unparseable party date leaves the cell empty without stray backslashes", () => {
+    const f = completeForm();
+    f.party1.date = "275760-01-01";
+    const md = buildCoverPage(f, "md");
+    expect(md).toContain("| Date |  | October 19, 2026 |");
+    expect(md).not.toContain("\\\\");
   });
 
   it("md mode escapes angle brackets instead of using entities", () => {

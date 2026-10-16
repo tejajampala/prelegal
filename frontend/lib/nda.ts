@@ -49,24 +49,28 @@ export function todayLocal(): string {
 }
 
 const filled = (s: string) => s.trim() !== "";
-const positiveInt = (s: string) => /^[1-9]\d*$/.test(s.trim());
+// Whole years from 1 to 99.
+const yearsInRange = (s: string) => /^[1-9]\d?$/.test(s.trim());
+
+// A real calendar date as YYYY-MM-DD (browsers allow 6-digit years in date inputs).
+const validDate = (s: string) => /^\d{4}-\d{2}-\d{2}$/.test(s) && !isNaN(new Date(`${s}T00:00:00`).getTime());
 
 const CHECKS: [label: string, ok: (f: NdaForm) => boolean][] = [
   ["Purpose", (f) => filled(f.purpose)],
-  ["Effective date", (f) => filled(f.effectiveDate)],
-  ["MNDA term (whole years)", (f) => f.termType !== "expires" || positiveInt(f.termYears)],
+  ["Effective date", (f) => validDate(f.effectiveDate)],
+  ["MNDA term (whole years)", (f) => f.termType !== "expires" || yearsInRange(f.termYears)],
   [
     "Term of confidentiality (whole years)",
-    (f) => f.confidentialityType !== "years" || positiveInt(f.confidentialityYears),
+    (f) => f.confidentialityType !== "years" || yearsInRange(f.confidentialityYears),
   ],
   ["Governing law", (f) => filled(f.governingLaw)],
   ["Jurisdiction", (f) => filled(f.jurisdiction)],
   ["Party 1 name", (f) => filled(f.party1.name)],
   ["Party 1 company", (f) => filled(f.party1.company)],
-  ["Party 1 date", (f) => filled(f.party1.date)],
+  ["Party 1 date", (f) => validDate(f.party1.date)],
   ["Party 2 name", (f) => filled(f.party2.name)],
   ["Party 2 company", (f) => filled(f.party2.company)],
-  ["Party 2 date", (f) => filled(f.party2.date)],
+  ["Party 2 date", (f) => validDate(f.party2.date)],
 ];
 
 // Labels of required fields that are empty or invalid, in form order.
@@ -85,7 +89,9 @@ const escapeMd = (s: string) =>
     .replace(/^(\s*\d+)([.)])/gm, "$1\\$2");
 
 // User text is neutralised for both HTML and markdown so it renders literally in either output.
-const escapeFor = (s: string, m: Mode) => (m === "html" ? escapeMd(escapeHtml(s)) : escapeMd(s));
+// In md mode a typed entity such as "&lt;" would be decoded by markdown renderers, so its "&" is escaped.
+const escapeFor = (s: string, m: Mode) =>
+  m === "html" ? escapeMd(escapeHtml(s)) : escapeMd(s).replace(/&(?=#?\w+;)/g, "\\&");
 
 const blank = "\\_\\_\\_\\_\\_\\_\\_\\_";
 
@@ -107,7 +113,10 @@ const cell = (s: string, m: Mode) =>
   s.trim() ? escapeFor(s.trim(), m).replace(/\s*\n\s*/g, " ") : emptyCell(m);
 
 // Unlike formatDate, an empty date leaves the table cell empty rather than showing a blank line.
-const dateCell = (iso: string, m: Mode) => (iso ? cell(formatDate(iso), m) : emptyCell(m));
+const dateCell = (iso: string, m: Mode) => {
+  const text = formatDate(iso);
+  return text === blank ? emptyCell(m) : cell(text, m);
+};
 
 const box = (checked: boolean) => (checked ? "[x]" : "[ ]");
 
